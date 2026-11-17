@@ -1,5 +1,0 @@
-{
-  "summary": "Interactive HTML slide deck for Lab 9 (Evaluation & Failure Analysis) presentation demo. Contains 9 slides covering: title, architecture overview, failure taxonomy (M1), judge calibration (M2), trace case analysis (M3), release gate with paired bootstrap CI (M4), advanced eval set v2 with slices and pass^k (M5-M6), anti-cheat traps (M7), CI pipeline, and final summary. Keyboard navigation with arrow keys.",
-  "updatedAt": "2026-11-17T11:51:19.125493Z",
-  "userFacing": true
-}
