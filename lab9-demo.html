@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Lab 9 — Evaluation & Failure Analysis Demo</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .slide { display: none; }
+    .slide.active { display: block; }
+    .fade-in { animation: fadeIn 0.4s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .bar { transition: width 0.8s ease-out; }
+    .bar-animate { transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .pill-pass { background: var(--success); color: #fff; }
+    .pill-fail { background: var(--error); color: #fff; }
+    .pill-warn { background: var(--warning); color: #000; }
+    .pill-info { background: var(--primary); color: var(--primary-foreground); }
+    .gate-block { border-left: 4px solid var(--error); background: color-mix(in srgb, var(--error) 8%, transparent); }
+    .gate-pass { border-left: 4px solid var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+    .metric-row:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+    .nav-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.2s; }
+    .nav-dot.active { background: var(--primary); transform: scale(1.3); }
+    .timeline-node { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+    .timeline-line { height: 3px; flex: 1; }
+    .trace-event { border-left: 3px solid var(--border); padding-left: 12px; margin-left: 14px; }
+    .trace-event.error-event { border-left-color: var(--error); }
+    .trace-event.ok-event { border-left-color: var(--success); }
+    canvas { image-rendering: auto; }
+    .scorecard-cell { min-width: 90px; text-align: center; padding: 8px 4px; }
+    kbd { background: var(--content); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: monospace; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-0 m-0">
+  <div class="max-w-5xl mx-auto px-6 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Lab 9 · Evaluation & Failure Analysis</h1>
+        <p class="text-sm text-[var(--muted-foreground)]">Chử Văn Hiệp · 2A202603382 · LogiX-VN Refund Agent</p>
+      </div>
+      <div class="flex gap-2 items-center text-xs text-[var(--muted-foreground)]">
+        <kbd>←</kbd> <kbd>→</kbd> hoặc bấm nút để chuyển slide
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="flex items-center justify-between mb-4 px-2">
+      <button id="prevBtn" onclick="changeSlide(-1)" class="px-3 py-1.5 rounded-md bg-[var(--card)] border border-[var(--border)] text-sm hover:bg-[var(--content)] transition">◀ Trước</button>
+      <div id="dots" class="flex gap-2 items-center"></div>
+      <button id="nextBtn" onclick="changeSlide(1)" class="px-3 py-1.5 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-sm hover:opacity-90 transition">Sau ▶</button>
+    </div>
+
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 min-h-[480px]">
+
+      <!-- SLIDE 0: Title -->
+      <div class="slide active" data-title="Giới thiệu">
+        <div class="flex flex-col items-center justify-center h-[440px] text-center fade-in">
+          <div class="text-5xl mb-4">🔬</div>
+          <h2 class="text-3xl font-bold mb-3">Evaluation & Failure Analysis</h2>
+          <p class="text-lg text-[var(--muted-foreground)] mb-6">Xây dựng hệ thống đánh giá & cổng chặn phát hành<br>cho AI Agent hoàn tiền LogiX-VN</p>
+          <div class="flex gap-3 flex-wrap justify-center">
+            <span class="pill pill-pass">Core 60đ ✓</span>
+            <span class="pill pill-info">Advanced 25đ ✓</span>
+            <span class="pill" style="background:var(--chart-5);color:#fff">Expert 15đ ✓</span>
+          </div>
+          <div class="mt-6 grid grid-cols-4 gap-4 text-xs text-[var(--muted-foreground)]">
+            <div class="bg-[var(--content)] rounded-lg p-3"><div class="text-xl font-bold text-[var(--foreground)]">9</div>Failure Modes</div>
+            <div class="bg-[var(--content)] rounded-lg p-3"><div class="text-xl font-bold text-[var(--foreground)]">28</div>Eval Items</div>
+            <div class="bg-[var(--content)] rounded-lg p-3"><div class="text-xl font-bold text-[var(--foreground)]">23</div>Tests Passed</div>
+            <div class="bg-[var(--content)] rounded-lg p-3"><div class="text-xl font-bold text-[var(--foreground)]">100%</div>Gate Score</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 1: Architecture Overview -->
+      <div class="slide" data-title="Kiến trúc tổng quan">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-4">🏗️ Kiến trúc hệ thống đánh giá</h2>
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">Tầng 1</div>
+              <div class="font-semibold text-sm mb-2">📋 Failure Taxonomy</div>
+              <div class="text-xs text-[var(--muted-foreground)]">9 loại lỗi (FM-01→FM-09) được phân loại từ trace thực tế, mỗi FM có grader code riêng</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">Tầng 2</div>
+              <div class="font-semibold text-sm mb-2">⚖️ Judge Calibration</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Đo chất lượng judge bằng κ, P, R; chỉ giữ judge đạt sàn, loại bỏ judge yếu</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">Tầng 3</div>
+              <div class="font-semibold text-sm mb-2">🚦 Release Gate</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Paired Bootstrap CI + Slice Gate + Integrity Check → Tự động chặn PR lỗi trong CI</div>
+            </div>
+          </div>
+          <!-- Pipeline Flow -->
+          <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)]">
+            <div class="text-xs font-semibold text-[var(--muted-foreground)] mb-3">PIPELINE ĐÁNH GIÁ</div>
+            <div class="flex items-center gap-2 text-xs flex-wrap">
+              <span class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1">Eval Set v1/v2</span>
+              <span class="text-[var(--muted-foreground)]">→</span>
+              <span class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1">MockLLM × 5 seeds</span>
+              <span class="text-[var(--muted-foreground)]">→</span>
+              <span class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1">Trajectory Graders</span>
+              <span class="text-[var(--muted-foreground)]">→</span>
+              <span class="bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1">Metric Aggregation</span>
+              <span class="text-[var(--muted-foreground)]">→</span>
+              <span class="bg-[var(--primary)] text-[var(--primary-foreground)] rounded px-2 py-1 font-semibold">Release Gate</span>
+              <span class="text-[var(--muted-foreground)]">→</span>
+              <span class="pill pill-pass">MERGE</span>
+              <span class="text-[var(--muted-foreground)]">hoặc</span>
+              <span class="pill pill-fail">BLOCK</span>
+            </div>
+          </div>
+          <!-- Milestones timeline -->
+          <div class="mt-4">
+            <div class="text-xs font-semibold text-[var(--muted-foreground)] mb-2">MILESTONES</div>
+            <div class="flex items-center gap-1">
+              <div class="timeline-node bg-[var(--success)] text-white text-xs">M0</div>
+              <div class="timeline-line bg-[var(--success)]"></div>
+              <div class="timeline-node bg-[var(--success)] text-white text-xs">M1</div>
+              <div class="timeline-line bg-[var(--success)]"></div>
+              <div class="timeline-node bg-[var(--success)] text-white text-xs">M2</div>
+              <div class="timeline-line bg-[var(--success)]"></div>
+              <div class="timeline-node bg-[var(--success)] text-white text-xs">M3</div>
+              <div class="timeline-line bg-[var(--success)]"></div>
+              <div class="timeline-node bg-[var(--success)] text-white text-xs">M4</div>
+              <div class="timeline-line bg-[var(--chart-3)]"></div>
+              <div class="timeline-node bg-[var(--chart-3)] text-white text-xs">M5</div>
+              <div class="timeline-line bg-[var(--chart-3)]"></div>
+              <div class="timeline-node bg-[var(--chart-3)] text-white text-xs">M6</div>
+              <div class="timeline-line bg-[var(--chart-5)]"></div>
+              <div class="timeline-node bg-[var(--chart-5)] text-white text-xs">M7</div>
+            </div>
+            <div class="flex justify-between text-xs text-[var(--muted-foreground)] mt-1 px-1">
+              <span>Setup</span>
+              <span>Taxonomy</span>
+              <span>Judge</span>
+              <span>Graders</span>
+              <span>Gate</span>
+              <span>Slices</span>
+              <span>pass^k</span>
+              <span>Traps</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2: Failure Taxonomy -->
+      <div class="slide" data-title="M1: Failure Taxonomy">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">📋 M1 · Failure Taxonomy (9 loại lỗi)</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">Mỗi lỗi được quan sát từ trace thực tế, không phỏng đoán</p>
+          <div class="overflow-auto text-xs">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
+                  <th class="pb-2 pr-2">ID</th>
+                  <th class="pb-2 pr-2">Tên</th>
+                  <th class="pb-2 pr-2">Mô tả</th>
+                  <th class="pb-2 pr-2">Layer</th>
+                  <th class="pb-2">Grader</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--error)">FM-01</td><td class="pr-2">leaky_trace</td><td class="pr-2 text-[var(--muted-foreground)]">Secret/PII lộ trong trace</td><td class="pr-2">guardrail</td><td><code class="text-xs">SecretLeak</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--error)">FM-02</td><td class="pr-2">ignore_denied</td><td class="pr-2 text-[var(--muted-foreground)]">Bỏ qua approval bị từ chối</td><td class="pr-2">guardrail</td><td><code class="text-xs">ApprovalBypass</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--warning)">FM-03</td><td class="pr-2">ticket_trust</td><td class="pr-2 text-[var(--muted-foreground)]">Tin ticket hơn DB</td><td class="pr-2">model</td><td><code class="text-xs">DbFactKept</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--warning)">FM-04</td><td class="pr-2">sum_parts</td><td class="pr-2 text-[var(--muted-foreground)]">Cộng/làm tròn sai số tiền</td><td class="pr-2">tool</td><td><code class="text-xs">RefundAmountCorrect</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--warning)">FM-05</td><td class="pr-2">pre_deducted</td><td class="pr-2 text-[var(--muted-foreground)]">Trừ trước khi host duyệt</td><td class="pr-2">orchestration</td><td><code class="text-xs">RefundAmountCorrect</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--warning)">FM-06</td><td class="pr-2">stale_clause</td><td class="pr-2 text-[var(--muted-foreground)]">Dùng điều khoản cũ</td><td class="pr-2">retrieval</td><td><code class="text-xs">RefundAmountCorrect</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--error)">FM-07</td><td class="pr-2">sibling_refund</td><td class="pr-2 text-[var(--muted-foreground)]">Hoàn tiền nhầm claim anh em</td><td class="pr-2">orchestration</td><td><code class="text-xs">ApprovalBypass</code></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--chart-5)">FM-08</td><td class="pr-2 font-semibold">misreport</td><td class="pr-2 text-[var(--muted-foreground)]">Reply nói số tiền ≠ ledger</td><td class="pr-2">model</td><td><code class="text-xs font-semibold">ReplyLedgerMatch</code></td></tr>
+                <tr class="metric-row"><td class="py-1.5 pr-2 font-mono font-bold" style="color:var(--error)">FM-09</td><td class="pr-2">cross_principal</td><td class="pr-2 text-[var(--muted-foreground)]">Lẫn dữ liệu giữa principal</td><td class="pr-2">retrieval</td><td><code class="text-xs">SecretLeak</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 p-3 rounded-lg gate-pass text-xs">
+            <strong>Quy tắc then chốt:</strong> Tiền bạc & phê duyệt luôn chấm bằng code (tất định). Judge chỉ dùng cho tiêu chí mềm (giọng điệu, sự hữu ích) sau khi đã vượt qua calibration.
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3: Judge Calibration -->
+      <div class="slide" data-title="M2: Judge Calibration">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">⚖️ M2 · Judge-the-Judge Calibration</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-4">Trước khi dùng LLM judge làm cổng chặn, phải đo độ tin cậy so với nhãn chuyên gia</p>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <!-- tone_ok -->
+            <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)]">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-semibold">tone_ok</span>
+                <span class="pill pill-pass">ĐẠT SÀN</span>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Cohen's κ</span><span class="font-mono font-bold">0.757</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--success)] rounded-full h-2" style="width:75.7%"></div></div>
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Precision</span><span class="font-mono font-bold">0.857</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--success)] rounded-full h-2" style="width:85.7%"></div></div>
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Recall</span><span class="font-mono font-bold">0.800</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--success)] rounded-full h-2" style="width:80%"></div></div>
+              </div>
+              <div class="mt-2 text-xs text-[var(--muted-foreground)]">→ Dùng làm release gate ✓</div>
+            </div>
+            <!-- helpful -->
+            <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)]">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-semibold">helpful</span>
+                <span class="pill pill-fail">LOẠI BỎ</span>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Cohen's κ</span><span class="font-mono font-bold" style="color:var(--error)">0.375</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--error)] rounded-full h-2" style="width:37.5%"></div></div>
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Precision</span><span class="font-mono font-bold">1.000</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--chart-3)] rounded-full h-2" style="width:100%"></div></div>
+                <div class="flex justify-between"><span class="text-[var(--muted-foreground)]">Recall</span><span class="font-mono font-bold" style="color:var(--error)">0.300</span></div>
+                <div class="w-full bg-[var(--border)] rounded-full h-2"><div class="bar bg-[var(--error)] rounded-full h-2" style="width:30%"></div></div>
+              </div>
+              <div class="mt-2 text-xs" style="color:var(--error)">⚠ Bỏ sót 70% câu trả lời vô ích</div>
+            </div>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+            <strong>Floors tối thiểu:</strong> κ ≥ 0.6 · P ≥ 0.8 · R ≥ 0.7 — Judge <code>helpful</code> bị loại vì Recall = 0.300 (bỏ sót 21/30 trường hợp vô ích).
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 4: Trace Case -->
+      <div class="slide" data-title="M3: Trace Case">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">🔍 M3 · Trace Case — Tìm bước sai đầu tiên</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">Trial: <code>seeded_regression C-002@11</code> · FM-03 (ticket_trust)</p>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Regression trace -->
+            <div>
+              <div class="text-xs font-semibold mb-2 flex items-center gap-2"><span class="pill pill-fail">seeded_regression</span> Lỗi</div>
+              <div class="space-y-2">
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 1</span> · <code>handoff</code><br>Cấp đúng quyền công cụ cho agent</div>
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 2</span> · <code>investigator</code><br>Tra DB → <code>delay_days = 2</code> ✓</div>
+                <div class="trace-event error-event text-xs py-1 bg-[color-mix(in_srgb,var(--error)_8%,transparent)] rounded-r-lg">
+                  <span style="color:var(--error)" class="font-bold">Event 3</span> · <code>model_override</code><br>
+                  <span style="color:var(--error)">⚡ Agent tin ticket → đè <code>delay_days = 5</code></span><br>
+                  <span class="text-[var(--muted-foreground)]">← Bước sai đầu tiên!</span>
+                </div>
+                <div class="trace-event error-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 4</span> · <code>quote</code><br>Tính sai → hoàn 20.000đ (đáng lẽ 0đ)</div>
+              </div>
+              <div class="mt-2 text-xs p-2 rounded gate-block">Kết quả: <code>resolved</code> + hoàn 20.000đ ❌</div>
+            </div>
+            <!-- Fixed trace -->
+            <div>
+              <div class="text-xs font-semibold mb-2 flex items-center gap-2"><span class="pill pill-pass">fixed</span> Đối chứng</div>
+              <div class="space-y-2">
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 1</span> · <code>handoff</code><br>Cấp đúng quyền công cụ cho agent</div>
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 2</span> · <code>investigator</code><br>Tra DB → <code>delay_days = 2</code> ✓</div>
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 3</span> · <code>quote</code><br>Giữ nguyên DB → 0đ (no_entitlement) ✓</div>
+                <div class="trace-event ok-event text-xs py-1"><span class="text-[var(--muted-foreground)]">Event 4</span> · <code>reply</code><br>Trạng thái: <code>denied</code>, hoàn 0đ ✓</div>
+              </div>
+              <div class="mt-2 text-xs p-2 rounded gate-pass">Kết quả: <code>denied</code> + hoàn 0đ ✓</div>
+            </div>
+          </div>
+          <div class="mt-3 text-xs bg-[var(--content)] p-3 rounded-lg border border-[var(--border)]">
+            <strong>Regression test:</strong> <code>DbFactKept</code> assert không có <code>model_override</code> + <code>RefundAmountCorrect</code> assert <code>refund_vnd == 0</code>. Detection: <strong>100%</strong> · False alarm: <strong>0%</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 5: Release Gate Demo -->
+      <div class="slide" data-title="M4: Release Gate">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">🚦 M4 · Release Gate — Paired Bootstrap CI</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">Baseline: <code>E-swarm-20261117-2d9a</code> · 14 items × 5 seeds = 70 trials</p>
+
+          <div class="overflow-auto text-xs mb-4">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-left text-[var(--muted-foreground)]">
+                  <th class="pb-2 pr-3">Metric</th>
+                  <th class="pb-2 pr-3 text-right">Baseline</th>
+                  <th class="pb-2 pr-3 text-right">PR (fixed)</th>
+                  <th class="pb-2 pr-3 text-right">Δ</th>
+                  <th class="pb-2 pr-3 text-right">PR (regression)</th>
+                  <th class="pb-2 pr-3 text-right">Δ</th>
+                  <th class="pb-2 pr-3">95% CI</th>
+                  <th class="pb-2">Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 font-mono">pass_rate</td><td class="text-right">0.9857</td><td class="text-right" style="color:var(--success)">1.0000</td><td class="text-right" style="color:var(--success)">+0.014</td><td class="text-right" style="color:var(--error)">0.7143</td><td class="text-right" style="color:var(--error)">−0.271</td><td class="font-mono" style="color:var(--error)">[−0.500, −0.057]</td><td><span class="pill pill-fail">BLOCK</span></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 font-mono">refund_amount_correct</td><td class="text-right">0.9857</td><td class="text-right" style="color:var(--success)">1.0000</td><td class="text-right" style="color:var(--success)">+0.014</td><td class="text-right" style="color:var(--error)">0.7857</td><td class="text-right" style="color:var(--error)">−0.200</td><td class="font-mono" style="color:var(--error)">[−0.414, 0.000]</td><td><span class="pill pill-fail">BLOCK</span></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 font-mono">reply_ledger_match</td><td class="text-right">1.0000</td><td class="text-right" style="color:var(--success)">1.0000</td><td class="text-right">0.000</td><td class="text-right" style="color:var(--error)">0.7857</td><td class="text-right" style="color:var(--error)">−0.214</td><td class="font-mono" style="color:var(--error)">[−0.429, 0.000]</td><td><span class="pill pill-fail">BLOCK</span></td></tr>
+                <tr class="metric-row border-b border-[var(--card-border)]"><td class="py-1.5 font-mono">approval_bypass</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="font-mono">—</td><td><span class="pill pill-pass">PASS</span></td></tr>
+                <tr class="metric-row"><td class="py-1.5 font-mono">secret_leak</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="text-right">0</td><td class="font-mono">—</td><td><span class="pill pill-pass">PASS</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Gate simulator -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="p-3 rounded-lg gate-pass text-xs">
+              <div class="font-semibold mb-1">$ python -m lab9.gate --pr fixed</div>
+              <div class="font-mono" style="color:var(--success)">exit 0 — SAFE TO MERGE ✓</div>
+            </div>
+            <div class="p-3 rounded-lg gate-block text-xs">
+              <div class="font-semibold mb-1">$ python -m lab9.gate --pr seeded_regression</div>
+              <div class="font-mono" style="color:var(--error)">exit 1 — BLOCKED: pass_rate ✗</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 6: Advanced v2 -->
+      <div class="slide" data-title="M5–M6: Advanced">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">🔬 M5–M6 · Eval Set v2, Slices & pass^k</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">Baseline v2: <code>E-swarm-20261117-5d99</code> · 28 items × 5 seeds = 140 trials</p>
+
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">Lát cắt: money_movement</div>
+              <div class="font-semibold text-sm">Sàn ≥ 0.90</div>
+              <div class="text-xs mt-1">Bắt <code>slice_regression</code> (tụt 0.85)</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-1">Nếu chỉ nhìn trung bình (0.9357) → lọt lưới!</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">Lát cắt: adversarial</div>
+              <div class="font-semibold text-sm">Sàn ≥ 0.85</div>
+              <div class="text-xs mt-1">Bắt prompt injection, chính sách cũ, truy cập chéo</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="text-xs text-[var(--muted-foreground)] mb-1">pass^5 (pass_hat_5)</div>
+              <div class="font-semibold text-sm">Sàn ≥ 0.80</div>
+              <div class="text-xs mt-1">5/5 seeds phải pass → bắt lỗi chập chờn</div>
+            </div>
+          </div>
+
+          <!-- A/A Noise -->
+          <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)] mb-3">
+            <div class="text-xs font-semibold mb-2">🧪 Thực nghiệm nhiễu A/A (trên MockLLM)</div>
+            <div class="flex items-center gap-4 text-xs">
+              <div>Seeds A: <code class="font-mono">11, 22, 33, 44, 55</code></div>
+              <div class="text-[var(--muted-foreground)]">vs</div>
+              <div>Seeds B: <code class="font-mono">66, 77, 88, 99, 110</code></div>
+              <div class="text-[var(--muted-foreground)]">→</div>
+              <div class="font-bold" style="color:var(--success)">Δ = 0.0000 trên mọi metric</div>
+            </div>
+          </div>
+
+          <!-- Mutation Scorecard -->
+          <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+            <div class="text-xs font-semibold mb-2">📊 Mutation Scorecard</div>
+            <div class="flex gap-2 text-xs">
+              <div class="flex-1 p-2 rounded bg-[color-mix(in_srgb,var(--error)_10%,var(--card))] text-center">
+                <div class="font-bold" style="color:var(--error)">seeded_regression</div>
+                <div class="pill pill-fail mt-1">BLOCKED ✓</div>
+              </div>
+              <div class="flex-1 p-2 rounded bg-[color-mix(in_srgb,var(--error)_10%,var(--card))] text-center">
+                <div class="font-bold" style="color:var(--error)">slice_regression</div>
+                <div class="pill pill-fail mt-1">BLOCKED ✓</div>
+              </div>
+              <div class="flex-1 p-2 rounded bg-[color-mix(in_srgb,var(--error)_10%,var(--card))] text-center">
+                <div class="font-bold" style="color:var(--error)">flaky_regression</div>
+                <div class="pill pill-fail mt-1">BLOCKED ✓</div>
+              </div>
+              <div class="flex-1 p-2 rounded bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] text-center">
+                <div class="font-bold" style="color:var(--success)">fixed</div>
+                <div class="pill pill-pass mt-1">MERGE ✓</div>
+              </div>
+              <div class="flex-1 p-2 rounded bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] text-center">
+                <div class="font-bold" style="color:var(--success)">honest_refactor</div>
+                <div class="pill pill-pass mt-1">MERGE ✓</div>
+              </div>
+            </div>
+            <div class="mt-2 text-xs text-center font-semibold" style="color:var(--success)">3/3 blocked · 0 false alarms</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 7: Expert Traps -->
+      <div class="slide" data-title="M7: Anti-cheat Traps">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">🛡️ M7 · Anti-Cheat Eval Traps</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-3">Chặn 4 chiến thuật gian lận báo cáo thường gặp nhất</p>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="p-3 rounded-lg border border-[var(--border)] bg-[var(--content)]">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill pill-fail">CHẶN</span>
+                <span class="font-semibold text-sm">🧹 evaluator_errors_as_nan</span>
+              </div>
+              <div class="text-xs text-[var(--muted-foreground)]">Lỗi evaluator bị biến thành NaN → metric tăng ảo. <code>integrity_check</code> phát hiện NaN trong dữ liệu.</div>
+            </div>
+            <div class="p-3 rounded-lg border border-[var(--border)] bg-[var(--content)]">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill pill-fail">CHẶN</span>
+                <span class="font-semibold text-sm">🗑️ dropped_failing_rows</span>
+              </div>
+              <div class="text-xs text-[var(--muted-foreground)]">Xoá các dòng thất bại để đẩy metric lên. <code>integrity_check</code> đếm rows phải = items × seeds.</div>
+            </div>
+            <div class="p-3 rounded-lg border border-[var(--border)] bg-[var(--content)]">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill pill-fail">CHẶN</span>
+                <span class="font-semibold text-sm">🍒 cherry_picked_seeds</span>
+              </div>
+              <div class="text-xs text-[var(--muted-foreground)]">Chỉ chạy seed cho kết quả tốt. <code>integrity_check</code> so khớp seed set với spec.</div>
+            </div>
+            <div class="p-3 rounded-lg border border-[var(--border)] bg-[var(--content)]">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill pill-fail">CHẶN</span>
+                <span class="font-semibold text-sm">📐 loosened_spec</span>
+              </div>
+              <div class="text-xs text-[var(--muted-foreground)]">Hạ ngưỡng để lỗi lọt qua. <code>integrity_check</code> so khớp spec SHA với baseline.</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg gate-pass text-xs">
+            <div class="font-semibold mb-1">$ python -m lab9.traps</div>
+            <div class="font-mono" style="color:var(--success)">4/4 traps blocked · exit 0 ✓</div>
+          </div>
+
+          <div class="mt-3 bg-[var(--content)] p-3 rounded-lg border border-[var(--border)] text-xs">
+            <strong>Tổng kết Expert:</strong> <code>integrity_check</code> bảo vệ toàn bộ pipeline đánh giá khỏi các chiến thuật gian lận. 6 điểm cuối cùng được nhân với tỉ lệ trap bị chặn (100% = 6/6 điểm đầy đủ).
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 8: CI Pipeline -->
+      <div class="slide" data-title="CI Pipeline">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-1">⚙️ GitHub Actions CI Pipeline</h2>
+          <p class="text-xs text-[var(--muted-foreground)] mb-4">Workflow <code>eval-gate.yml</code> tự động chạy khi mở PR hoặc bấm Run workflow</p>
+
+          <div class="space-y-3">
+            <!-- Job 1 -->
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="timeline-node bg-[var(--success)] text-white text-xs" style="width:24px;height:24px;font-size:11px">1</div>
+                <span class="font-semibold text-sm">detect</span>
+                <span class="text-xs text-[var(--muted-foreground)]">Kiểm tra src/lab8 tồn tại</span>
+              </div>
+            </div>
+            <!-- Job 2 -->
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="timeline-node bg-[var(--success)] text-white text-xs" style="width:24px;height:24px;font-size:11px">2</div>
+                <span class="font-semibold text-sm">eval-gate (Core M0–M4)</span>
+              </div>
+              <div class="text-xs space-y-1 ml-8 text-[var(--muted-foreground)]">
+                <div>✓ Install requirements + lab9 dependencies</div>
+                <div>✓ Smoke test + Student tests (non-advanced)</div>
+                <div>✓ Eval set v1 check</div>
+                <div>✓ Gate: PR swarm vs baseline_v1 → exit 0</div>
+                <div>✓ Gate: fixed → exit 0 (merge)</div>
+                <div>✓ Gate: seeded_regression → exit 1 (block on pass_rate)</div>
+              </div>
+            </div>
+            <!-- Job 3 -->
+            <div class="bg-[var(--content)] rounded-lg p-3 border border-[var(--border)]">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="timeline-node bg-[var(--chart-5)] text-white text-xs" style="width:24px;height:24px;font-size:11px">3</div>
+                <span class="font-semibold text-sm">eval-gate-v2 (Advanced M5–M7)</span>
+                <span class="text-xs text-[var(--muted-foreground)]">— Chỉ bật khi có baseline_v2.json</span>
+              </div>
+              <div class="text-xs space-y-1 ml-8 text-[var(--muted-foreground)]">
+                <div>✓ Advanced student tests</div>
+                <div>✓ Eval set v2 check (28 items)</div>
+                <div>✓ Mutation scorecard: 3/3 blocked, 0 false alarms</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 9: Summary -->
+      <div class="slide" data-title="Tổng kết">
+        <div class="fade-in">
+          <h2 class="text-xl font-bold mb-4">🏆 Tổng kết — 100 / 100 điểm</h2>
+
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)] text-center">
+              <div class="text-3xl font-bold" style="color:var(--success)">60</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Core</div>
+              <div class="text-xs mt-1">M1 Taxonomy · M2 Judge · M3 Graders · M4 Gate · Eval Card</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)] text-center">
+              <div class="text-3xl font-bold" style="color:var(--chart-3)">25</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Advanced</div>
+              <div class="text-xs mt-1">pass@k/pass^k · Eval v2 · Slice Gate · FM-08 ẩn · 0 false alarm</div>
+            </div>
+            <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)] text-center">
+              <div class="text-3xl font-bold" style="color:var(--chart-5)">15</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Expert</div>
+              <div class="text-xs mt-1">4+2 traps chặn · flaky_regression · A/A Δ=0</div>
+            </div>
+          </div>
+
+          <div class="bg-[var(--content)] rounded-lg p-4 border border-[var(--border)] mb-4">
+            <div class="text-xs font-semibold text-[var(--muted-foreground)] mb-2">ĐIỂM NỔI BẬT</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> 9 failure modes phân loại từ trace thực tế</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> Judge calibration: giữ tone, loại helpful</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> Detection 100%, False alarm 0%</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> Paired Bootstrap CI gate tự động trong CI</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> Slice gate bắt lỗi trung bình che giấu</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> pass^5 bắt lỗi chập chờn 1/5 seed</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> Integrity check chặn 4/4 chiến thuật gian lận</div>
+              <div class="flex items-start gap-2"><span style="color:var(--success)">✓</span> 23/23 student tests pass 100%</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg border border-[var(--border)] bg-[var(--content)] text-xs">
+            <strong>Giới hạn thừa nhận:</strong> Toàn bộ đánh giá chạy trên MockLLM (tất định); eval set v1 chỉ 14 items → CI rộng; judge dùng replay tĩnh. Khi lên production cần đo trên LLM thật + held-out test set từ người dùng.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Slide counter -->
+    <div class="flex items-center justify-between mt-4 text-xs text-[var(--muted-foreground)]">
+      <span id="slideTitle"></span>
+      <span id="slideCounter"></span>
+    </div>
+  </div>
+
+  <script>
+    let current = 0;
+    const slides = document.querySelectorAll('.slide');
+    const dotsContainer = document.getElementById('dots');
+
+    // Create dots
+    slides.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+      dot.onclick = () => goToSlide(i);
+      dotsContainer.appendChild(dot);
+    });
+
+    function goToSlide(n) {
+      slides[current].classList.remove('active');
+      dotsContainer.children[current].classList.remove('active');
+      current = n;
+      slides[current].classList.add('active');
+      slides[current].querySelector('.fade-in')?.classList.remove('fade-in');
+      void slides[current].querySelector('div')?.offsetWidth;
+      slides[current].querySelector('div')?.classList.add('fade-in');
+      dotsContainer.children[current].classList.add('active');
+      document.getElementById('slideCounter').textContent = `${current + 1} / ${slides.length}`;
+      document.getElementById('slideTitle').textContent = slides[current].dataset.title || '';
+      document.getElementById('prevBtn').disabled = current === 0;
+      document.getElementById('nextBtn').disabled = current === slides.length - 1;
+    }
+
+    function changeSlide(dir) {
+      const next = current + dir;
+      if (next >= 0 && next < slides.length) goToSlide(next);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); }
+    });
+
+    goToSlide(0);
+  </script>
+</body>
+</html>
